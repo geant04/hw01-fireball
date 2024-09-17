@@ -74,17 +74,6 @@ void main()
 {
     // Material base color (before shading)
         vec4 diffuseColor = u_Color;
-
-        // Calculate the diffuse term for Lambert shading
-        float diffuseTerm = dot(normalize(fs_Nor), normalize(fs_LightVec));
-        // Avoid negative lighting values
-        diffuseTerm = clamp(diffuseTerm, 0.0, 1.0);
-
-        float ambientTerm = 0.2;
-
-        float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier
-                                                            //to simulate ambient lighting. This ensures that faces that are not
-                                                            //lit by our point light are not completely black.
         
         vec3 noiseInput = fs_Pos.xyz;
         noiseInput.x *= 2.0;
@@ -94,9 +83,12 @@ void main()
         vec3 pos = fs_Pos.rgb;
         vec3 normal = fs_Nor.rgb;
         
-        vec3 testColor = normal.rgb;
+        vec3 testColor = vec3(1.0, 0., 0.);
+
 
         float flameClip = 2.0 * pow((pos.y + 1.00), 1.5) * noise;
+
+        testColor = mix(testColor, vec3(1.0, 1.0, 0.0), clamp(flameClip / 2.3, 0.0, 1.0));
 
         if (flameClip > 1.4)
         {
@@ -104,8 +96,6 @@ void main()
             vec3 flameColor = mix(vec3(1, 1, 0), vec3(1), flameClip * 1.4);
             testColor = mix(testColor, flameColor, 1.9 * flameClip);
             testColor *= 1.2;
-
-            lightIntensity = 1.0;
 
             if (flameClip > 0.6)
             {
@@ -115,5 +105,5 @@ void main()
         }
 
         // Compute final shaded color
-        out_Col = vec4(testColor * lightIntensity, (1.5 - pos.y));
+        out_Col = vec4(testColor, (1.5 - pos.y));
 }
