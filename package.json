@@ -1,10 +1,15 @@
 {
   "scripts": {
     "start": "webpack-dev-server --no-hot --live-reload",
-    "build": "webpack"
+    "build": "webpack",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
+    "@types/dat.gui": "^0.7.13",
+    "@types/stats.js": "^0.17.3",
     "@types/webgl2": "0.0.6",
+    "gh-pages": "^6.1.1",
     "ts-loader": "^9.2.5",
     "typescript": "^4.4.2",
     "webpack": "^5.52.0",
@@ -14,6 +19,8 @@
   },
   "dependencies": {
     "3d-view-controls": "^2.2.2",
-    "gl-matrix": "^3.3.0"
+    "dat.gui": "^0.7.7",
+    "gl-matrix": "^3.3.0",
+    "stats-js": "^1.0.1"
   }
 }
