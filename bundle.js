@@ -10082,6 +10082,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
 /* harmony import */ var _globals__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../globals */ "./src/globals.ts");
 
 
@@ -10103,12 +10104,14 @@ class OpenGLRenderer {
     render(camera, prog, color, drawables) {
         let model = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
         let viewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+        let cameraPos = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(camera.controls.eye[0], camera.controls.eye[1], camera.controls.eye[2], 1.0);
         //let color = vec4.fromValues(1, 0, 0, 1);
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.identity(model);
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
         prog.setModelMatrix(model);
         prog.setViewProjMatrix(viewProj);
         prog.setGeometryColor(color);
+        prog.setCameraPos(cameraPos);
         for (let drawable of drawables) {
             prog.draw(drawable);
         }
@@ -10165,6 +10168,7 @@ class ShaderProgram {
         this.unifModelInvTr = _globals__WEBPACK_IMPORTED_MODULE_0__.gl.getUniformLocation(this.prog, "u_ModelInvTr");
         this.unifViewProj = _globals__WEBPACK_IMPORTED_MODULE_0__.gl.getUniformLocation(this.prog, "u_ViewProj");
         this.unifColor = _globals__WEBPACK_IMPORTED_MODULE_0__.gl.getUniformLocation(this.prog, "u_Color");
+        this.unifCameraPos = _globals__WEBPACK_IMPORTED_MODULE_0__.gl.getUniformLocation(this.prog, "u_CameraPos");
     }
     use() {
         if (activeProgram !== this.prog) {
@@ -10194,6 +10198,12 @@ class ShaderProgram {
         this.use();
         if (this.unifColor !== -1) {
             _globals__WEBPACK_IMPORTED_MODULE_0__.gl.uniform4fv(this.unifColor, color);
+        }
+    }
+    setCameraPos(pos) {
+        this.use();
+        if (this.unifCameraPos !== -1) {
+            _globals__WEBPACK_IMPORTED_MODULE_0__.gl.uniform4fv(this.unifCameraPos, pos);
         }
     }
     setFloat(name, value) {
@@ -10822,7 +10832,7 @@ function createTurntableController(options) {
   \****************************************/
 /***/ ((module) => {
 
-module.exports = "#version 300 es\r\n\r\nprecision highp float;\r\n\r\nuniform vec4 u_Color; // The color with which to render this instance of geometry.\r\n// uniform int u_NoiseType; // use this later when we want to render a different type of noise...\r\n// uniform int u_EnableFBM; // use this to enable FBM later when I get there lol\r\nuniform float u_Amplitude;\r\nuniform float u_Persistence;\r\nuniform float u_Frequency;\r\nuniform float u_Lacunarity;\r\nuniform float u_Time;\r\n\r\nin vec4 fs_Nor;\r\nin vec4 fs_LightVec;\r\nin vec4 fs_Col;\r\nin vec4 fs_Pos;\r\n\r\nout vec4 out_Col; \r\n\r\n#define PI 3.1415926535897932\r\n\r\nfloat hash(float p) { p = fract(p * 0.011); p *= p + 7.5; p *= p + p; return fract(p); }\r\n\r\nfloat value3D(vec3 pos)\r\n{\r\n    // https://www.shadertoy.com/view/4dS3Wd Morgan Mcguire my goat\r\n    const vec3 step = vec3(110, 241, 171);\r\n\r\n    vec3 i = floor(pos);\r\n    vec3 f = fract(pos);\r\n\r\n    float n = dot(i, step);\r\n\r\n    vec3 u = f * f * (3.0 - 2.0 * f);\r\n    return mix(mix(mix( hash(n + dot(step, vec3(0, 0, 0))), hash(n + dot(step, vec3(1, 0, 0))), u.x),\r\n                   mix( hash(n + dot(step, vec3(0, 1, 0))), hash(n + dot(step, vec3(1, 1, 0))), u.x), u.y),\r\n               mix(mix( hash(n + dot(step, vec3(0, 0, 1))), hash(n + dot(step, vec3(1, 0, 1))), u.x),\r\n                   mix( hash(n + dot(step, vec3(0, 1, 1))), hash(n + dot(step, vec3(1, 1, 1))), u.x), u.y), u.z);\r\n}\r\n\r\nfloat fbm(vec3 pos)\r\n{\r\n    float total = 0.0;\r\n\r\n    float persistence = u_Persistence;\r\n    float amp = u_Amplitude;\r\n    float freq = u_Frequency;\r\n    float lacunarity = u_Lacunarity;\r\n\r\n    int octaves = 8;\r\n\r\n    for (int i = 0; i < octaves; i++)\r\n    {\r\n        total += amp * value3D(pos * freq);\r\n        amp *= persistence;\r\n        freq *= lacunarity;\r\n    }\r\n\r\n    return total;\r\n}\r\n\r\nfloat cosineGradient(float x, vec4 props)\r\n{\r\n    float dc = props.x;\r\n    float amp = props.y;\r\n    float freq = props.z;\r\n    float phase = props.w;\r\n\r\n    return clamp(amp * cos(freq * x * PI + phase * PI * 2.0) + dc, 0.0, 1.0);\r\n}\r\n\r\nvoid main()\r\n{\r\n    // Material base color (before shading)\r\n        vec4 diffuseColor = u_Color;\r\n\r\n        // Calculate the diffuse term for Lambert shading\r\n        float diffuseTerm = dot(normalize(fs_Nor), normalize(fs_LightVec));\r\n        // Avoid negative lighting values\r\n        diffuseTerm = clamp(diffuseTerm, 0.0, 1.0);\r\n\r\n        float ambientTerm = 0.2;\r\n\r\n        float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier\r\n                                                            //to simulate ambient lighting. This ensures that faces that are not\r\n                                                            //lit by our point light are not completely black.\r\n        \r\n        vec3 noiseInput = fs_Pos.xyz;\r\n        noiseInput.x *= 2.0;\r\n        noiseInput.y -= 2.0 * u_Time;\r\n        \r\n        float noise = fbm(noiseInput);\r\n        vec3 pos = fs_Pos.rgb;\r\n        vec3 normal = fs_Nor.rgb;\r\n        \r\n        vec3 testColor = normal.rgb;\r\n\r\n        float flameClip = 2.0 * pow((pos.y + 1.00), 1.5) * noise;\r\n\r\n        if (flameClip > 1.4)\r\n        {\r\n            flameClip = smoothstep(flameClip, 0.2, 1.0);\r\n            vec3 flameColor = mix(vec3(1, 1, 0), vec3(1), flameClip * 1.4);\r\n            testColor = mix(testColor, flameColor, 1.9 * flameClip);\r\n            testColor *= 1.2;\r\n\r\n            lightIntensity = 1.0;\r\n\r\n            if (flameClip > 0.6)\r\n            {\r\n                //testColor = vec3(0);\r\n                discard;\r\n            }\r\n        }\r\n\r\n        // Compute final shaded color\r\n        out_Col = vec4(testColor * lightIntensity, (1.5 - pos.y));\r\n}\r\n"
+module.exports = "#version 300 es\r\n\r\nprecision highp float;\r\n\r\nuniform vec4 u_CameraPos;\r\nuniform vec4 u_Color; // The color with which to render this instance of geometry.\r\n// uniform int u_NoiseType; // use this later when we want to render a different type of noise...\r\n// uniform int u_EnableFBM; // use this to enable FBM later when I get there lol\r\nuniform float u_Amplitude;\r\nuniform float u_Persistence;\r\nuniform float u_Frequency;\r\nuniform float u_Lacunarity;\r\nuniform float u_Time;\r\n\r\nin vec4 fs_Nor;\r\nin vec4 fs_LightVec;\r\nin vec4 fs_Col;\r\nin vec4 fs_Pos;\r\n\r\nout vec4 out_Col; \r\n\r\n#define PI 3.1415926535897932\r\n\r\nfloat hash(float p) { p = fract(p * 0.011); p *= p + 7.5; p *= p + p; return fract(p); }\r\n\r\nfloat value3D(vec3 pos)\r\n{\r\n    // https://www.shadertoy.com/view/4dS3Wd Morgan Mcguire my goat\r\n    const vec3 step = vec3(110, 241, 171);\r\n\r\n    vec3 i = floor(pos);\r\n    vec3 f = fract(pos);\r\n\r\n    float n = dot(i, step);\r\n\r\n    vec3 u = f * f * (3.0 - 2.0 * f);\r\n    return mix(mix(mix( hash(n + dot(step, vec3(0, 0, 0))), hash(n + dot(step, vec3(1, 0, 0))), u.x),\r\n                   mix( hash(n + dot(step, vec3(0, 1, 0))), hash(n + dot(step, vec3(1, 1, 0))), u.x), u.y),\r\n               mix(mix( hash(n + dot(step, vec3(0, 0, 1))), hash(n + dot(step, vec3(1, 0, 1))), u.x),\r\n                   mix( hash(n + dot(step, vec3(0, 1, 1))), hash(n + dot(step, vec3(1, 1, 1))), u.x), u.y), u.z);\r\n}\r\n\r\nfloat fbm(vec3 pos)\r\n{\r\n    float total = 0.0;\r\n\r\n    float persistence = u_Persistence;\r\n    float amp = u_Amplitude;\r\n    float freq = u_Frequency;\r\n    float lacunarity = u_Lacunarity;\r\n\r\n    int octaves = 8;\r\n\r\n    for (int i = 0; i < octaves; i++)\r\n    {\r\n        total += amp * value3D(pos * freq);\r\n        amp *= persistence;\r\n        freq *= lacunarity;\r\n    }\r\n\r\n    return total;\r\n}\r\n\r\nfloat cosineGradient(float x, vec4 props)\r\n{\r\n    float dc = props.x;\r\n    float amp = props.y;\r\n    float freq = props.z;\r\n    float phase = props.w;\r\n\r\n    return clamp(amp * cos(freq * x * PI + phase * PI * 2.0) + dc, 0.0, 1.0);\r\n}\r\n\r\nvoid main()\r\n{\r\n    // Material base color (before shading)\r\n        vec4 diffuseColor = u_Color;\r\n        \r\n        vec3 noiseInput = fs_Pos.xyz;\r\n        noiseInput.x *= 2.0;\r\n        noiseInput.y -= 2.0 * u_Time;\r\n        \r\n        float noise = fbm(noiseInput);\r\n        vec3 pos = fs_Pos.rgb;\r\n        vec3 normal = fs_Nor.rgb;\r\n        \r\n        vec3 testColor = vec3(1.0, 0.4, 0.);\r\n\r\n\r\n        float flameClip = 2.0 * pow((pos.y + 1.00), 1.5) * noise;\r\n\r\n        testColor = mix(testColor, vec3(1.0, 1.0, 0.0), clamp(flameClip / 2.3, 0.0, 1.0));\r\n\r\n        if (flameClip > 1.4)\r\n        {\r\n            flameClip = smoothstep(flameClip, 0.2, 1.0);\r\n            vec3 flameColor = mix(vec3(1, 1, 0), vec3(1), flameClip * 1.4);\r\n            testColor = mix(testColor, flameColor, 1.9 * flameClip);\r\n            testColor *= 1.2;\r\n\r\n            if (flameClip > 0.6)\r\n            {\r\n                //testColor = vec3(0);\r\n                discard;\r\n            }\r\n        }\r\n\r\n        vec3 camPos = normalize(vec3(u_CameraPos.rgb));\r\n        vec3 norm = normalize(fs_Nor.rgb);\r\n\r\n        float dotProd = max(dot(camPos, norm), 0.0);\r\n        float fresnel = pow(1.0 - pow(dotProd, 2.0), 3.0);\r\n\r\n        testColor = mix(testColor, vec3(1.5), fresnel - 0.20);\r\n\r\n        // Compute final shaded color\r\n        out_Col = vec4(testColor, (1.5 - pos.y));\r\n}\r\n"
 
 /***/ }),
 
@@ -10990,7 +11000,7 @@ function main() {
     loadScene();
     const camera = new _Camera__WEBPACK_IMPORTED_MODULE_5__["default"](gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0, 5), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0, 0));
     const renderer = new _rendering_gl_OpenGLRenderer__WEBPACK_IMPORTED_MODULE_4__["default"](canvas);
-    renderer.setClearColor(0.2, 0.2, 0.2, 1);
+    renderer.setClearColor(0.05, 0.05, 0.05, 1);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
