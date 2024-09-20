@@ -20,6 +20,8 @@ uniform mat4 u_ViewProj;    // The matrix that defines the camera's transformati
                             // but in HW3 you'll have to generate one yourself
 
 uniform float u_Time;
+uniform float u_KaboomSpeed;
+
 
 in vec4 vs_Pos;             // The array of vertex positions passed to the shader
 
@@ -42,6 +44,30 @@ uniform float u_Lacunarity;
 uniform int u_Octaves;
 
 #define PI 3.1415926535897932
+
+float bias(float b, float t) 
+{
+    return pow(t, log(b) / log(0.5));
+}
+
+float gain(float g, float t)
+{
+    if (t < 0.5)
+        return bias(1.0 - g, 2.0 * t) / 2.0;
+    else
+        return 1.0 - bias(1.0 - g, 2.0 - 2.0 * t) / 2.0;
+}
+
+float sawtooth_wave(float x, float freq, float amplitude)
+{
+    return (x * freq - floor(x * freq) * amplitude);
+}
+
+float impulse(float k, float x)
+{
+    float h = k*x;
+    return h * exp(1.0 - h);
+}
 
 float hash(float p) { p = fract(p * 0.011); p *= p + 7.5; p *= p + p; return fract(p); }
 
@@ -118,11 +144,11 @@ float sway(vec3 pos, float p, float time)
 
     float swaySpeed = 10.5;
     float totalDisplacement = 0.0;
-    float amplify = yPos;
+    float amplify = impulse(0.3, 1.2 * yPos); // toolbox function!!
 
     float swayAmt = 0.02 * sin(30.0 * amplify + swaySpeed * time) + 0.50;
 
-    swayAmt += 0.04 * (0.5 * sin(60.0 * amplify + 4.0 * swaySpeed * time) + 0.50);
+    swayAmt += 0.04 * gain(0.3, (0.5 * sin(60.0 * amplify + 4.0 * swaySpeed * time) + 0.50));
 
     totalDisplacement += 0.30 * swayAmt;
 
@@ -157,8 +183,12 @@ void main()
                                                             // model matrix. This is necessary to ensure the normals remain
                                                             // perpendicular to the surface after the surface is transformed by
                                                             // the model matrix.
+    // kaboom
+    float intensify;
+    float t = sawtooth_wave(u_KaboomSpeed * u_Time, 0.9 + (u_KaboomSpeed - 0.10), 1.0); // toolbox func 0
+    intensify = 1.0 - impulse(0.70, clamp(t, 0.01, 0.2)); // toolbox func 1
 
-    localVertex += fs_Nor.rgb * 0.20 * deltaY;
+    localVertex += fs_Nor.rgb * (0.20 + 2.0 * bias(0.1, intensify * 1.08)) * deltaY; // toolbox func 2
 
     vec4 modelposition = u_Model * vec4(localVertex, 1.0);   // Temporarily store the transformed vertex positions for use below
 

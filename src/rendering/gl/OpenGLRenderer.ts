@@ -25,6 +25,14 @@ class OpenGLRenderer {
   render(camera: Camera, prog: ShaderProgram, color: vec4, drawables: Array<Drawable>) {
     let model = mat4.create();
     let viewProj = mat4.create();
+
+    let cameraPos = vec4.fromValues(
+      camera.controls.eye[0], 
+      camera.controls.eye[1],
+      camera.controls.eye[2],
+      1.0
+    )
+
     //let color = vec4.fromValues(1, 0, 0, 1);
 
     mat4.identity(model);
@@ -32,7 +40,7 @@ class OpenGLRenderer {
     prog.setModelMatrix(model);
     prog.setViewProjMatrix(viewProj);
     prog.setGeometryColor(color);
-
+    prog.setCameraPos(cameraPos);
     for (let drawable of drawables) {
       prog.draw(drawable);
     }

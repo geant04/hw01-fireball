@@ -14,13 +14,17 @@ import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
   tesselations: 5,
-  color: [255, 0, 0],
+  flameColor: [255, 104, 0],
+  secondFlameColor: [255, 255, 0],
+  flameTipColor: [255, 255, 255],
   persistence: 0.5,
   amplitude: 0.5,
   frequency: 2.0,
   lacunarity: 2.0,
   octaves: 8,
   cube: false,
+  partyTime: false,
+  kaboomSpeed: 0.1,
   'Load Scene': loadScene, // A function pointer, essentially
 };
 
@@ -51,13 +55,17 @@ function main() {
   // Add controls to the gui
   const gui = new DAT.GUI();
   gui.add(controls, 'tesselations', 0, 8).step(1);
-  gui.addColor(controls, 'color');
+  gui.addColor(controls, 'flameColor');
+  gui.addColor(controls, 'secondFlameColor');
+  gui.addColor(controls, 'flameTipColor');
   gui.add(controls, 'persistence', 0.0, 1.0);
   gui.add(controls, 'amplitude', 0.0, 1.0);
   gui.add(controls, 'frequency', 0.0, 10.0);
   gui.add(controls, 'lacunarity', 0.0, 10.0);
   gui.add(controls, 'octaves', 0, 10).step(1);
   gui.add(controls, 'cube', false);
+  gui.add(controls, 'partyTime', false);
+  gui.add(controls, 'kaboomSpeed', 0.0, 0.5);
   gui.add(controls, 'Load Scene');
 
   // get canvas and webgl context
@@ -76,7 +84,7 @@ function main() {
   const camera = new Camera(vec3.fromValues(0, 0, 5), vec3.fromValues(0, 0, 0));
 
   const renderer = new OpenGLRenderer(canvas);
-  renderer.setClearColor(0.2, 0.2, 0.2, 1);
+  renderer.setClearColor(0.05, 0.05, 0.05, 1);
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -107,9 +115,22 @@ function main() {
     }
 
     let geomColor = vec4.fromValues(
-                        controls.color[0] / 255.0,
-                        controls.color[1] / 255.0,
-                        controls.color[2] / 255.0,
+                        controls.flameColor[0] / 255.0,
+                        controls.flameColor[1] / 255.0,
+                        controls.flameColor[2] / 255.0,
+                        1.0,
+                      );
+    let secondFlameColor = vec4.fromValues(
+                        controls.secondFlameColor[0] / 255.0,
+                        controls.secondFlameColor[1] / 255.0,
+                        controls.secondFlameColor[2] / 255.0,
+                        1.0,
+                      );
+    
+    let flameTipColor = vec4.fromValues(
+                        controls.flameTipColor[0] / 255.0,
+                        controls.flameTipColor[1] / 255.0,
+                        controls.flameTipColor[2] / 255.0,
                         1.0,
                       );
     
@@ -118,7 +139,11 @@ function main() {
     lambert.setFloat("u_Frequency", controls.frequency);
     lambert.setFloat("u_Lacunarity", controls.lacunarity);
     lambert.setFloat("u_Time", timeStamp / 1000.0);
+    lambert.setFloat("u_KaboomSpeed", controls.kaboomSpeed);
     lambert.setInt("u_Octaves", controls.octaves);
+    lambert.setInt("u_IsPartyTime", controls.partyTime ? 1 : 0);
+    lambert.setVec4("u_SecondFlameColor", secondFlameColor);
+    lambert.setVec4("u_FlameTipColor", flameTipColor);
 
     let objects = []
     
