@@ -1,74 +1,46 @@
 
-# [Project 1: Noise](https://github.com/CIS-566-Fall-2022/hw01-fireball-base)
+# [Project 1: Supa Hot Fire Ball]
 
-## Objective
+Project by Anthony Ge
 
-Get comfortable with using WebGL and its shaders to generate an interesting 3D, continuous surface using a multi-octave noise algorithm.
+[Live demo link  here!](https://geant04.github.io/hw01-fireball/)
 
-## Getting Started
+![fireball](/fireball.gif)
 
-1. Fork and clone [this repository](https://github.com/CIS700-Procedural-Graphics/Project1-Noise).
+Implementation details
 
-2. Copy your hw0 code into your local hw1 repository.
+## Fireball Shaders
+### Vertex Shader
+- The fireball shape is constructed by a combination of the flame tips, an overall warp to make the shape look like a cone, and high frequency waves for fine detail.
+- To achieve the flame tips, I use FBM sine waves to vertically displace vertices, biasing the amplitude only if their y position is above a threshold
+- To warp the sphere, I use another sine function to shape the ball
+- I wanted to make the ball "wobble" in the end, which I achived by using FBM sine waves again with very high frequency and low amplitude, displacing instead in the x,z directions
+- To wobble the ball even more, I used my x,y,z displacement values and treated them as a magnitude, to which I then multiplied by interpolated 3D value noise to offset vertices by their normals
+- I do use gain a bit too in my xz wobble.
 
-3. In the root directory of your project, run `npm install`. This will download all of those dependencies.
+### Fragment Shader
+- This is the bulk of the detail, but in summary, all it is an alpha-noise mask used to discard pixels, achieving a very nice flames look + general FBM noise sampled with a (0, time) offset to make it rise.
+- To brighten up the tips, I use a smoothstep on the alpha-clipped values that are within a certain range, then using that as an input for my lerp between the flame and tip colors
+- I applied rim lighting on the bottom to brighten up the edges of the ball, achieved using the view angle dotted with the normal, then using some techniques to calculate a fresnel value
 
-4. Do either of the following (but I highly recommend the first one for reasons I will explain later).
+## Bonus + Background Shaders
+### Party Mode
+- All this does is change the flame color, which is done using a simple cosine-gradient color ramp + using time as an input
+### Kaboom
+- Honestly, this only exists because I found out later on that it's required to use four toolbox functions. To solve that missing requirement and looking at a few functions, particularly impulse, I felt it made sense to make the ball explode over time.
+- In essence, the kaboom is just amplifying the normal displacement in the vertex shader and the brightness of the fireball in the fragment shader
+- To calculate intensity for the kaboom:
+  - I use an impulse function to map the power of the blast over time (it should boom then quickly fade out)
+  - To make the impulse function repeat over time, I use a sawtooth function with t as input so that input for impulse is always [0,1]
+  - I then slightly bias the impulse result to my liking, using a low value arbitrarily
+- Using my intensity value for what I described before achieves a nice explosion effect.
+### Background
+- For the background, I rendered a massive cube behind (modifying its scale in the vertex shader), and use a specialzied fragment shader to fake lighitng
+- Fragment Shader
+  - I split the fragment shading of the cube into two parts: the wall texture, the lighting
+    - The wall texture is detailed using domain warped FBM noise. To darken the walls a bit, I calculate a value that's simply the inverse of the distance from vertex position to origin squared; this is mostly inspired by how we calculate light falloff for most rendering purposes. 
+    - For the lighting of the scene, I use the same falloff calculation to light up the scene, except I use some FBM sine waves to jitter the range in the distance calculation. In addition, I re-use my intensity value so that light reaches farther in the explosion, illuminating the box!
+  - Combining both, I now have a scene in the back with real-time lighting that behaves like real-life!
 
-    a. Run `npm start` and then go to `localhost:7000` in your web browser
-
-    b. Run `npm run build` and then go open `index.html` in your web browser
-
-    You should hopefully see the framework code with a 3D cube at the center of the screen!
-
-
-## Developing Your Code
-All of the JavaScript code is living inside the `src` directory. The main file that gets executed when you load the page as you may have guessed is `main.js`. Here, you can make any changes you want, import functions from other files, etc. The reason that I highly suggest you build your project with `npm start` is that doing so will start a process that watches for any changes you make to your code. If it detects anything, it'll automagically rebuild your project and then refresh your browser window for you. Wow. That's cool. If you do it the other way, you'll need to run `npm build` and then refresh your page every time you want to test something.
-
-## Publishing Your Code
-We highly suggest that you put your code on GitHub. One of the reasons we chose to make this course using JavaScript is that the Web is highly accessible and making your awesome work public and visible can be a huge benefit when you're looking to score a job or internship. To aid you in this process, running `npm run deploy` will automatically build your project and push it to `gh-pages` where it will be visible at `username.github.io/repo-name`.
-
-## Setting up `main.ts`
-
-Alter `main.ts` so that it renders the icosphere provided, rather than the cube you built in hw0. You will be writing a WebGL shader to displace its surface to look like a fireball. You may either rewrite the shader you wrote in hw0, or make a new `ShaderProgram` instance that uses new GLSL files.
-
-## Noise Generation
-
-Across your vertex and fragment shaders, you must implement a variety of functions of the form `h = f(x,y,z)` to displace and color your fireball's surface, where `h` is some floating-point displacement amount.
-
-- Your vertex shader should apply a low-frequency, high-amplitude displacement of your sphere so as to make it less uniformly sphere-like. You might consider using a combination of sinusoidal functions for this purpose.
-- Your vertex shader should also apply a higher-frequency, lower-amplitude layer of fractal Brownian motion to apply a finer level of distortion on top of the high-amplitude displacement.
-- Your fragment shader should apply a gradient of colors to your fireball's surface, where the fragment color is correlated in some way to the vertex shader's displacement.
-- Both the vertex and fragment shaders should alter their output based on a uniform time variable (i.e. they should be animated). You might consider making a constant animation that causes the fireball's surface to roil, or you could make an animation loop in which the fireball repeatedly explodes.
-- Across both shaders, you should make use of at least four of the functions discussed in the Toolbox Functions slides.
-
-
-## Noise Application
-
-View your noise in action by applying it as a displacement on the surface of your icosahedron, giving your icosahedron a bumpy, cloud-like appearance. Simply take the noise value as a height, and offset the vertices along the icosahedron's surface normals. You are, of course, free to alter the way your noise perturbs your icosahedron's surface as you see fit; we are simply recommending an easy way to visualize your noise. You could even apply a couple of different noise functions to perturb your surface to make it even less spherical.
-
-In order to animate the vertex displacement, use time as the third dimension or as some offset to the (x, y, z) input to the noise function. Pass the current time since start of program as a uniform to the shaders.
-
-For both visual impact and debugging help, also apply color to your geometry using the noise value at each point. There are several ways to do this. For example, you might use the noise value to create UV coordinates to read from a texture (say, a simple gradient image), or just compute the color by hand by lerping between values.
-
-## Interactivity
-
-Using dat.GUI, make at least THREE aspects of your demo interactive variables. For example, you could add a slider to adjust the strength or scale of the noise, change the number of noise octaves, etc. 
-
-Add a button that will restore your fireball to some nice-looking (courtesy of your art direction) defaults. :)
-
-## Extra Spice
-
-Choose one of the following options: 
-
-- Background (easy-hard depending on how fancy you get): Add an interesting background or a more complex scene to place your fireball in so it's not floating in a black void
-- Custom mesh (easy): Figure out how to import a custom mesh rather than using an icosahedron for a fancy-shaped cloud.
-- Mouse interactivity (medium): Find out how to get the current mouse position in your scene and use it to deform your cloud, such that users can deform the cloud with their cursor.
-- Music (hard): Figure out a way to use music to drive your noise animation in some way, such that your noise cloud appears to dance.
-
-## Submission
-
-- Update README.md to contain a solid description of your project
-- Publish your project to gh-pages. `npm run deploy`. It should now be visible at http://username.github.io/repo-name
-- Create a [pull request](https://help.github.com/articles/creating-a-pull-request/) to this repository, and in the comment, include a link to your published project.
-- Submit the link to your pull request on Canvas.
+## References
+- Used Morgan Mcguire's [3D value noise implementation](https://www.shadertoy.com/view/4dS3Wd) found on Shadertoy 
