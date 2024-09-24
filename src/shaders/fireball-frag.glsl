@@ -125,7 +125,6 @@ void main()
             float nB = cosineGradient(partySpeed * u_Time, vec4(0.5, 0.5, 1.0, 0.6666));
 
             vec3 partyColors = vec3(nR, nG, nB);
-            testColor;
             flameTipColor *= partyColors;
         }
 
@@ -162,5 +161,5 @@ void main()
         intensify = bias(0.1, intensify);
 
         // Compute final shaded color
-        out_Col = vec4(testColor * 0.90 + (0.4 * intensify), (1.5 - pos.y));
+        out_Col = vec4(testColor * 1.2 + (0.2 * intensify), (1.5 - pos.y));
 }

@@ -94,6 +94,11 @@ function main() {
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/fireball-frag.glsl')),
   ]);
 
+  const backgroundShader = new ShaderProgram([
+    new Shader(gl.VERTEX_SHADER, require('./shaders/lambert-vert.glsl')),
+    new Shader(gl.FRAGMENT_SHADER, require('./shaders/lambert-frag.glsl')),
+  ]);
+
   // This function will be called every frame
   function tick(timeStamp: number) {
     if (start == undefined)
@@ -134,23 +139,31 @@ function main() {
                         1.0,
                       );
     
-    lambert.setFloat("u_Persistence", controls.persistence);
-    lambert.setFloat("u_Amplitude", controls.amplitude);
-    lambert.setFloat("u_Frequency", controls.frequency);
-    lambert.setFloat("u_Lacunarity", controls.lacunarity);
-    lambert.setFloat("u_Time", timeStamp / 1000.0);
-    lambert.setFloat("u_KaboomSpeed", controls.kaboomSpeed);
-    lambert.setInt("u_Octaves", controls.octaves);
-    lambert.setInt("u_IsPartyTime", controls.partyTime ? 1 : 0);
-    lambert.setVec4("u_SecondFlameColor", secondFlameColor);
-    lambert.setVec4("u_FlameTipColor", flameTipColor);
+    let progs = [lambert, backgroundShader];
+
+    progs.forEach((prog) => {
+      prog.setFloat("u_Persistence", controls.persistence);
+      prog.setFloat("u_Amplitude", controls.amplitude);
+      prog.setFloat("u_Frequency", controls.frequency);
+      prog.setFloat("u_Lacunarity", controls.lacunarity);
+      prog.setFloat("u_Time", timeStamp / 1000.0);
+      prog.setFloat("u_KaboomSpeed", controls.kaboomSpeed);
+      prog.setInt("u_Octaves", controls.octaves);
+      prog.setInt("u_IsPartyTime", controls.partyTime ? 1 : 0);
+      prog.setVec4("u_SecondFlameColor", secondFlameColor);
+      prog.setVec4("u_FlameTipColor", flameTipColor);
+    });
 
     let objects = []
     
     if (controls.cube) objects.push(cube)
     if (!controls.cube) objects.push(icosphere)
-
+    
+    gl.depthFunc(gl.ALWAYS)
+    renderer.render(camera, backgroundShader, geomColor, [cube]);
+    gl.depthFunc(gl.LESS)
     renderer.render(camera, lambert, geomColor, objects);
+
     stats.end();
 
     // Tell the browser to call `tick` again whenever it renders a new frame
