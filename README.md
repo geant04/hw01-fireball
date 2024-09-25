@@ -3,7 +3,7 @@
 
 Project by Anthony Ge
 
-[Live demo link  here!](https://geant04.github.io/hw01-fireball/)
+[Live demo link  here!](https://geant04.github.io/supa-hot-fireball/)
 
 ![fireball](/fireball.gif)
 
